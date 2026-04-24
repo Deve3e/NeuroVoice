@@ -61,29 +61,37 @@ def speak(text):
 print("Speak something... (Press Ctrl+C to stop)")
 
 # ---------------- RECORD FUNCTION (VAD) ----------------
-def record_audio(filename="input.wav", fs=16000, silence_threshold=0.01, silence_duration=2.0):
+def record_audio(filename="input.wav", fs=16000, silence_threshold=0.005, silence_duration=1.0):
     """
     Records audio until there's no sound for `silence_duration` seconds.
     Uses energy-based voice activity detection.
     """
-    print("Recording... (speak now)")
+    print("Listening... (speak now)")
     
-    chunk_duration = 0.1  # Process in 100ms chunks
+    chunk_duration = 0.01  # Process in 100ms chunks
     chunk_samples = int(fs * chunk_duration)
-    max_duration = 30  # Max recording time to prevent infinite loops
+    max_duration = 10  # Max recording time to prevent infinite loops
     
     recording = []
     silence_counter = 0
-    chunks_to_wait = int(silence_duration / chunk_duration)  # 20 chunks = 2 seconds
+    chunks_to_wait = int(silence_duration / chunk_duration)  # 10 chunks = 1 second
+    speech_started = False
     
     while True:
         # Record a chunk
-        chunk = sd.rec(chunk_samples, samplerate=fs, channels=1)
+        chunk = sd.rec(chunk_samples, samplerate=fs, channels=1, dtype='float32')
         sd.wait()
         recording.append(chunk)
         
         # Calculate energy (RMS) of the chunk
         energy = np.sqrt(np.mean(chunk ** 2))
+        
+        # Wait for speech to start first
+        if not speech_started:
+            if energy >= silence_threshold:
+                speech_started = True
+                print("Speech detected...")
+            continue  # Keep listening until speech starts
         
         # Check if silence
         if energy < silence_threshold:
@@ -92,7 +100,7 @@ def record_audio(filename="input.wav", fs=16000, silence_threshold=0.01, silence
             silence_counter = 0
         
         # Stop if silence for specified duration
-        if silence_counter >= chunks_to_wait and len(recording) > 10:  # Min 10 chunks (1 sec)
+        if silence_counter >= chunks_to_wait:
             break
         
         # Safety limit
