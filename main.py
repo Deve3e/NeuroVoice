@@ -137,8 +137,8 @@ def record_audio(filename="input.wav", fs=16000, silence_threshold=0.005, silenc
             if silence_counter >= chunks_to_wait:
                 break
 
-            if len(recording) >= int(max_duration / chunk_duration):
-                print("Max recording time reached")
+            if not speech_started and len(recording) >= int(max_duration / chunk_duration):
+                print("No speech detected within 10 seconds.")
                 break
 
     if not speech_started:
