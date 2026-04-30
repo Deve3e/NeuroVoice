@@ -14,7 +14,8 @@ def get_ai_response(prompt):
         memory_path = os.path.join(base_dir, "memory.txt")
 
         if not os.path.exists(memory_path):
-            return "Memory file not found."
+            with open(memory_path, "w", encoding="utf-8") as f:
+                f.write("User memory:\n")
 
         with open(memory_path, "r", encoding="utf-8") as f:
             memory = f.read()
@@ -53,6 +54,7 @@ Respond clearly, intelligently, and helpfully.
     except Exception as e:
         return f"Connection error: {str(e)}"
 
+
 # ---------------- WHISPER ----------------
 model = whisper.load_model("tiny")
 
@@ -83,7 +85,7 @@ def speak(text):
 print("Speak something... (Press Ctrl+C to stop)")
 
 # ---------------- RECORD FUNCTION (VAD) ----------------
-def record_audio(filename="input.wav", fs=16000, silence_threshold=0.005, silence_duration=1.0):
+def record_audio(filename="input.wav", fs=16000, silence_threshold=0.005, silence_duration=3.0):
     """
     Records audio until there's no sound for `silence_duration` seconds.
     Uses energy-based voice activity detection.
@@ -166,6 +168,12 @@ while True:
     # Text → AI
     ai_text = get_ai_response(user_text)
     print("AI:", ai_text)
+
+    # Record conversation to memory
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    memory_path = os.path.join(base_dir, "memory.txt")
+    with open(memory_path, "a", encoding="utf-8") as f:
+        f.write(f"User: {user_text}\nAI: {ai_text}\n\n")
 
     # Text → Speech
     speak(ai_text)
