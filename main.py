@@ -5,14 +5,37 @@ import sounddevice as sd
 import numpy as np
 import scipy.io.wavfile as wav
 import winsound
+import os
 # ---------------- AI FUNCTION ----------------
 def get_ai_response(prompt):
     try:
+        # Load your memory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        memory_path = os.path.join(base_dir, "memory.txt")
+
+        if not os.path.exists(memory_path):
+            return "Memory file not found."
+
+        with open(memory_path, "r", encoding="utf-8") as f:
+            memory = f.read()
+
+        full_prompt = f"""
+You are a highly intelligent personal AI assistant.
+
+Use the following personal data to answer better:
+
+{memory}
+
+User said: {prompt}
+
+Respond clearly, intelligently, and helpfully.
+"""
+
         response = requests.post(
             "http://localhost:11434/api/generate",
             json={
                 "model": "phi",
-                "prompt": prompt,
+                "prompt": full_prompt,
                 "stream": False
             },
             timeout=60
@@ -29,7 +52,6 @@ def get_ai_response(prompt):
 
     except Exception as e:
         return f"Connection error: {str(e)}"
-
 
 # ---------------- WHISPER ----------------
 model = whisper.load_model("tiny")
