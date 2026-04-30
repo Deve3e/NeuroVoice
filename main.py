@@ -68,55 +68,69 @@ def record_audio(filename="input.wav", fs=16000, silence_threshold=0.005, silenc
     """
     print("Listening... (speak now)")
     
-    chunk_duration = 0.01  # Process in 100ms chunks
+    chunk_duration = 0.01  # Process in 10ms chunks
     chunk_samples = int(fs * chunk_duration)
     max_duration = 10  # Max recording time to prevent infinite loops
-    
     recording = []
     silence_counter = 0
-    chunks_to_wait = int(silence_duration / chunk_duration)  # 10 chunks = 1 second
+    chunks_to_wait = int(silence_duration / chunk_duration)
     speech_started = False
-    
-    while True:
-        # Record a chunk
-        chunk = sd.rec(chunk_samples, samplerate=fs, channels=1, dtype='float32')
-        sd.wait()
-        recording.append(chunk)
-        
-        # Calculate energy (RMS) of the chunk
-        energy = np.sqrt(np.mean(chunk ** 2))
-        
-        # Wait for speech to start first
-        if not speech_started:
-            if energy >= silence_threshold:
-                speech_started = True
-                print("Speech detected...")
-            continue  # Keep listening until speech starts
-        
-        # Check if silence
-        if energy < silence_threshold:
-            silence_counter += 1
-        else:
-            silence_counter = 0
-        
-        # Stop if silence for specified duration
-        if silence_counter >= chunks_to_wait:
-            break
-        
-        # Safety limit
-        if len(recording) >= int(max_duration / chunk_duration):
-            print("Max recording time reached")
-            break
-    
-    # Combine all chunks
+
+    with sd.InputStream(samplerate=fs, channels=1, dtype='float32') as stream:
+        # Calibrate ambient noise for the current microphone
+        calibration_chunks = int(0.5 / chunk_duration)
+        noise_levels = []
+        for _ in range(calibration_chunks):
+            chunk, overflow = stream.read(chunk_samples)
+            if overflow:
+                print("⚠️ Buffer overflow during calibration")
+            noise_levels.append(np.sqrt(np.mean(chunk ** 2)))
+
+        ambient_energy = float(np.mean(noise_levels)) if noise_levels else 0.0
+        adaptive_threshold = max(silence_threshold, ambient_energy * 3, 0.001)
+        print(f"Ambient energy={ambient_energy:.6f}, threshold={adaptive_threshold:.6f}")
+
+        while True:
+            chunk, overflow = stream.read(chunk_samples)
+            if overflow:
+                print("⚠️ Buffer overflow detected")
+            recording.append(chunk.copy())
+
+            energy = np.sqrt(np.mean(chunk ** 2))
+
+            if not speech_started:
+                if energy >= adaptive_threshold:
+                    speech_started = True
+                    print("Speech detected...")
+                else:
+                    continue
+
+            if energy < adaptive_threshold:
+                silence_counter += 1
+            else:
+                silence_counter = 0
+
+            if silence_counter >= chunks_to_wait:
+                break
+
+            if len(recording) >= int(max_duration / chunk_duration):
+                print("Max recording time reached")
+                break
+
+    if not speech_started:
+        print("No speech detected. Please try again.")
+        return False
+
     recording = np.concatenate(recording, axis=0)
     wav.write(filename, fs, recording)
     print("Recording saved.")
+    return True
 
 
 # ---------------- MAIN LOOP ----------------
 while True:
-    record_audio()
+    if not record_audio():
+        continue
 
     # Speech → Text
     result = model.transcribe("input.wav", language="en")
