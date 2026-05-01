@@ -8,7 +8,9 @@ import winsound
 import os
 import json
 from datetime import datetime
+from vector_store import VectorStore
 
+vector_db = VectorStore()
 # ---------------- PROFILE FUNCTION ----------------
 def generate_profile_summary(user_text):
     profile_prompt = f"""
@@ -265,11 +267,8 @@ while True:
     # Extract and save personal information to profile
     extract_and_save_personal_info(user_text, ai_text)
 
-    # Record conversation to memory
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    memory_path = os.path.join(base_dir, "memory.txt")
-    with open(memory_path, "a", encoding="utf-8") as f:
-        f.write(f"User: {user_text}\nAI: {ai_text}\n\n")
+    # Record conversation to vector database
+    vector_db.add(f"User: {user_text} | AI: {ai_text}")
 
     # Text → Speech
     speak(ai_text)
