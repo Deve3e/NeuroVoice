@@ -10,6 +10,17 @@ import json
 from datetime import datetime
 
 # ---------------- PROFILE FUNCTION ----------------
+def generate_profile_summary(user_text):
+    profile_prompt = f"""
+Extract only important long-term facts about the user from this message.
+Return short bullet points.
+If there is nothing important, return NONE.
+
+Message: {user_text}
+"""
+    return get_ai_response(profile_prompt)
+
+
 def extract_and_save_personal_info(user_text, ai_response):
     """
     Extracts personal information from user input and saves it to profile.txt
@@ -17,122 +28,31 @@ def extract_and_save_personal_info(user_text, ai_response):
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         profile_path = os.path.join(base_dir, "profile.txt")
-        
-        # Create or load existing profile
-        if not os.path.exists(profile_path):
-            profile_data = {
-                "name": None,
-                "age": None,
-                "location": None,
-                "job": None,
-                "preferences": [],
-                "interests": [],
-                "other_info": [],
-                "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
+
+        profile_summary = generate_profile_summary(user_text)
+        if not profile_summary:
+            return
+
+        summary_text = profile_summary.strip()
+        if summary_text.upper() == "NONE":
+            return
+
+        if os.path.exists(profile_path):
+            with open(profile_path, "r", encoding="utf-8") as f:
+                existing = f.read().strip()
         else:
-            try:
-                with open(profile_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    # Try to parse as JSON if it exists
-                    if content.strip().startswith("{"):
-                        profile_data = json.loads(content)
-                    else:
-                        profile_data = {
-                            "name": None,
-                            "age": None,
-                            "location": None,
-                            "job": None,
-                            "preferences": [],
-                            "interests": [],
-                            "other_info": [],
-                            "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        }
-            except:
-                profile_data = {
-                    "name": None,
-                    "age": None,
-                    "location": None,
-                    "job": None,
-                    "preferences": [],
-                    "interests": [],
-                    "other_info": [],
-                    "created_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-        
-        # Extract personal information using simple patterns
-        text_lower = user_text.lower()
-        
-        # Name extraction
-        if "my name is" in text_lower or "i'm" in text_lower or "i am" in text_lower:
-            if "my name is" in text_lower:
-                parts = text_lower.split("my name is")
-                if len(parts) > 1:
-                    name = parts[1].strip().split()[0].capitalize()
-                    if name and len(name) > 1:
-                        profile_data["name"] = name
-        
-        # Age extraction
-        if any(word in text_lower for word in ["i'm ", "i am ", "i'm "]):
-            words = user_text.split()
-            for i, word in enumerate(words):
-                if word.isdigit() and 1 <= int(word) <= 120:
-                    if i > 0 and words[i-1].lower() in ["years", "year", "old"]:
-                        profile_data["age"] = int(word)
-                        break
-        
-        # Location extraction
-        if "live in" in text_lower or "i'm from" in text_lower or "from" in text_lower:
-            if "live in" in text_lower:
-                parts = user_text.split("live in")
-                if len(parts) > 1:
-                    location = parts[1].strip().split(",")[0].strip()
-                    if location:
-                        profile_data["location"] = location
-        
-        # Job extraction
-        if "work as" in text_lower or "i'm a" in text_lower or "i am a" in text_lower or "job is" in text_lower:
-            if "work as" in text_lower:
-                parts = user_text.split("work as")
-                if len(parts) > 1:
-                    job = parts[1].strip().split(".")[0].strip()
-                    if job:
-                        profile_data["job"] = job
-            elif any(phrase in text_lower for phrase in ["i'm a", "i am a"]):
-                for phrase in ["i'm a", "i am a"]:
-                    if phrase in text_lower:
-                        parts = user_text.split(phrase)
-                        if len(parts) > 1:
-                            job = parts[1].strip().split(".")[0].split(",")[0].strip()
-                            if job:
-                                profile_data["job"] = job
-                            break
-        
-        # Preferences extraction (like/enjoy)
-        if "like" in text_lower or "enjoy" in text_lower or "love" in text_lower:
-            for keyword in ["like", "enjoy", "love"]:
-                if keyword in text_lower:
-                    pattern_idx = text_lower.find(keyword)
-                    preference = user_text[pattern_idx:].split(".")[0].strip()
-                    if preference and preference not in profile_data["preferences"]:
-                        profile_data["preferences"].append(preference)
-        
-        # Interests extraction (interested in)
-        if "interested in" in text_lower:
-            parts = user_text.split("interested in")
-            if len(parts) > 1:
-                interest = parts[1].strip().split(".")[0].strip()
-                if interest and interest not in profile_data["interests"]:
-                    profile_data["interests"].append(interest)
-        
-        # Save updated profile
+            existing = ""
+
+        if summary_text in existing:
+            return
+
+        updated_content = existing + "\n\n" + summary_text if existing else summary_text
+
         with open(profile_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(profile_data, indent=2, ensure_ascii=False))
-        
-        # Print if new info was found
-        if any([profile_data.get("name"), profile_data.get("age"), profile_data.get("location"), profile_data.get("job")]):
-            print("✓ Profile updated with personal information")
-            
+            f.write(updated_content)
+
+        print("✓ Profile updated with personal information")
+
     except Exception as e:
         print(f"Profile update error: {str(e)}")
 
@@ -156,44 +76,53 @@ def get_ai_response(prompt):
         if os.path.exists(profile_path):
             try:
                 with open(profile_path, "r", encoding="utf-8") as f:
-                    profile_content = f.read()
-                    if profile_content.strip().startswith("{"):
-                        profile_data = json.loads(profile_content)
-                        profile_lines = []
-                        if profile_data.get("name"):
-                            profile_lines.append(f"Name: {profile_data['name']}")
-                        if profile_data.get("age"):
-                            profile_lines.append(f"Age: {profile_data['age']}")
-                        if profile_data.get("location"):
-                            profile_lines.append(f"Location: {profile_data['location']}")
-                        if profile_data.get("job"):
-                            profile_lines.append(f"Job: {profile_data['job']}")
-                        if profile_data.get("preferences"):
-                            profile_lines.append(f"Preferences: {', '.join(profile_data['preferences'])}")
-                        if profile_data.get("interests"):
-                            profile_lines.append(f"Interests: {', '.join(profile_data['interests'])}")
-                        if profile_lines:
-                            profile_info = "User Profile:\n" + "\n".join(profile_lines) + "\n\n"
+                    profile_content = f.read().strip()
+                    if profile_content:
+                        if profile_content.startswith("{"):
+                            profile_data = json.loads(profile_content)
+                            profile_lines = []
+                            if profile_data.get("name"):
+                                profile_lines.append(f"Name: {profile_data['name']}")
+                            if profile_data.get("age"):
+                                profile_lines.append(f"Age: {profile_data['age']}")
+                            if profile_data.get("location"):
+                                profile_lines.append(f"Location: {profile_data['location']}")
+                            if profile_data.get("job"):
+                                profile_lines.append(f"Job: {profile_data['job']}")
+                            if profile_data.get("preferences"):
+                                profile_lines.append(f"Preferences: {', '.join(profile_data['preferences'])}")
+                            if profile_data.get("interests"):
+                                profile_lines.append(f"Interests: {', '.join(profile_data['interests'])}")
+                            if profile_lines:
+                                profile_info = "User Profile:\n" + "\n".join(profile_lines) + "\n\n"
+                        else:
+                            profile_info = "User Profile:\n" + profile_content + "\n\n"
             except:
                 pass
-
+        ASSISTANT_PERSONALITY = """
+You are NeuraVoice, a personal AI assistant.
+You are clear, supportive, intelligent, and slightly friendly.
+You adapt to the user's goals, interests, and knowledge level.
+Do not give generic answers if personal context is available.
+"""
         full_prompt = f"""
-You are a highly intelligent personal AI assistant.
+{ASSISTANT_PERSONALITY}
 
-Here is what you know about the user:
+Known user profile:
 {profile_info}
 
-Analyze this profile and adapt your responses:
-- Match user's knowledge level
-- Personalize explanations
-- Refer to user's interests when possible
-
-Conversation history:
+Conversation memory:
 {memory}
+
+Your task:
+1. Understand the user's current request.
+2. Adapt your explanation to their profile.
+3. Use their interests and goals when useful.
+4. Be concise, practical, and personal where needed.
 
 User: {prompt}
 
-Respond clearly, intelligently, and personally.
+NeuraVoice:
 """
 
         response = requests.post(
