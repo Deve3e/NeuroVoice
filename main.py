@@ -180,14 +180,20 @@ def get_ai_response(prompt):
         full_prompt = f"""
 You are a highly intelligent personal AI assistant.
 
+Here is what you know about the user:
 {profile_info}
-Use the following conversation history to answer better:
 
+Analyze this profile and adapt your responses:
+- Match user's knowledge level
+- Personalize explanations
+- Refer to user's interests when possible
+
+Conversation history:
 {memory}
 
-User said: {prompt}
+User: {prompt}
 
-Respond clearly, intelligently, and helpfully.
+Respond clearly, intelligently, and personally.
 """
 
         response = requests.post(
