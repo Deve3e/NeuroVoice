@@ -15,7 +15,7 @@ vector_db = VectorStore()
 def generate_profile_summary(user_text):
     profile_prompt = f"""
 Extract only important long-term facts about the user from this message.
-Return short bullet points.
+Return short bullet doints.
 If there is nothing important, return NONE.
 
 Message: {user_text}
